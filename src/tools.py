@@ -11,7 +11,7 @@ TOOL_SPECS = [
         "type": "function",
         "function": {
             "name": "plan_route",
-            "description": "Calcula una ruta vial estimada entre dos nodos de la red local de Medellín y compara A* con UCS. Usa los IDs numéricos seleccionados por el usuario en la interfaz.",
+            "description": "Calcula una ruta vial estimada entre dos nodos de la red local de Medellín con A* y compara su costo con UCS. Usa los IDs numéricos seleccionados por el usuario en la interfaz; si el usuario indica otros IDs válidos, usa esos.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -81,10 +81,16 @@ def execute_tool(name: str, arguments: dict, *, graph, coords, retriever, defaul
             "metric": metric,
             "distance_km": round(astar["distance_m"] / 1000, 3),
             "estimated_minutes": round(astar["time_s"] / 60, 1),
+            "optimized_cost": round(astar["objective_cost"], 3),
+            "route_nodes": astar["path"],
+            "road_names": list(dict.fromkeys(
+                edge.street_name for edge in astar["edges"] if edge.street_name
+            )),
             "route_node_count": len(astar["path"]),
             "astar_expanded": astar["expanded"],
             "ucs_expanded": ucs["expanded"],
             "same_optimal_cost": comparison["same_optimal_cost"],
+            "astar_expansions_saved": comparison["expansions_saved"],
             "limitations": "Estimación en red vial drive; no representa tráfico en tiempo real ni una ruta de Metro/bus.",
         }
 

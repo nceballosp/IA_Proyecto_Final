@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT))
 
 from src.agent import answer_with_tools  # noqa: E402
 from src.rag import MobilityRetriever  # noqa: E402
-from src.routing import compare_search, load_network  # noqa: E402
+from src.routing import build_node_labels, compare_search, load_network  # noqa: E402
 
 
 st.set_page_config(page_title="Copiloto de movilidad | Medellín",
@@ -44,10 +44,7 @@ except Exception as exc:
     st.stop()
 
 node_ids = list(coords)
-node_labels = {
-    node_id: f"{node_id} · {coords[node_id][0]:.5f}, {coords[node_id][1]:.5f} · {len(graph[node_id])} salidas"
-    for node_id in node_ids
-}
+node_labels = build_node_labels(graph, coords)
 center_lat = sum(lat for lat, _ in coords.values()) / len(coords)
 center_lon = sum(lon for _, lon in coords.values()) / len(coords)
 
@@ -61,12 +58,12 @@ with tab_routes:
         "Optimizar por", ["Distancia", "Tiempo estimado"])
     metric = "distance" if metric_label == "Distancia" else "time"
     origin = controls[1].selectbox(
-        "Origen (busca por ID)", node_ids, index=0,
+        "Origen (busca por calle)", node_ids, index=0,
         format_func=lambda n: node_labels[n], key="route_origin",
     )
     destination_index = min(1, len(node_ids) - 1)
     destination = controls[2].selectbox(
-        "Destino (busca por ID)", node_ids, index=destination_index,
+        "Destino (busca por calle)", node_ids, index=destination_index,
         format_func=lambda n: node_labels[n], key="route_destination",
     )
     run_route = controls[3].button(
@@ -165,8 +162,9 @@ with tab_routes:
                 st.metric("Reducción de expansiones con A*",
                           f"{comparison['expansion_reduction_pct']:.1f}%")
                 st.write(
-                    f"Ruta de **{saved_origin}** a **{saved_destination}**, con {len(astar['path'])} nodos. "
-                    "La velocidad se toma de OSM cuando existe y se estima por tipo de vía cuando falta."
+                    f"**Origen:** {node_labels[saved_origin]}  \n"
+                    f"**Destino:** {node_labels[saved_destination]}  \n"
+                    f"La ruta atraviesa {len(astar['path'])} nodos. La velocidad se toma de OSM cuando existe y se estima por tipo de vía cuando falta."
                 )
 
 with tab_rag:

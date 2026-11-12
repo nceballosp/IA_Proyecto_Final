@@ -23,6 +23,7 @@ class Edge:
     length_m: float
     seconds: float
     geometry: tuple[tuple[float, float], ...]
+    street_name: str = ""
 
 
 def _parse_speed(value: object, highway: object) -> float:
@@ -74,8 +75,30 @@ def load_network(data_dir: Path = DATA_DIR):
             continue
         speed = _parse_speed(getattr(row, "maxspeed", None), getattr(row, "highway", None))
         geom = _geometry_points(getattr(row, "geometry", ""), coords[u], coords[v])
-        graph[u].append(Edge(v, length, length / (speed / 3.6), geom))
+        raw_name = getattr(row, "name", None)
+        street_name = "" if pd.isna(raw_name) else str(raw_name).strip()
+        graph[u].append(Edge(v, length, length / (speed / 3.6), geom, street_name))
     return nodes, graph, coords
+
+
+def build_node_labels(graph, coords: dict[int, tuple[float, float]]) -> dict[int, str]:
+    """Crea etiquetas de nodos usando los nombres de las calles conectadas."""
+    streets_by_node: dict[int, set[str]] = {node_id: set() for node_id in coords}
+    for source, edges in graph.items():
+        for edge in edges:
+            if edge.street_name:
+                streets_by_node[source].add(edge.street_name)
+                streets_by_node[edge.target].add(edge.street_name)
+
+    labels = {}
+    for node_id, streets in streets_by_node.items():
+        lat, lon = coords[node_id]
+        if streets:
+            street_label = " · ".join(sorted(streets)[:2])
+            labels[node_id] = f"{street_label} · nodo {node_id}"
+        else:
+            labels[node_id] = f"Cruce sin nombre · nodo {node_id} · {lat:.4f}, {lon:.4f}"
+    return labels
 
 
 def haversine_m(a: tuple[float, float], b: tuple[float, float]) -> float:
