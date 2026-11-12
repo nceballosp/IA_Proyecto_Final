@@ -41,12 +41,13 @@ def answer_with_tools(
     default_destination: int,
     default_metric: str,
     max_tool_rounds: int = 4,
-    timeout_seconds: int = 60,
+    timeout_seconds: int = 120,
 ) -> str:
     if not api_key:
         raise ValueError("Configura NVIDIA_API_KEY antes de usar el chat.")
     if not base_url or not model:
-        raise ValueError("Configura NVIDIA_BASE_URL y NVIDIA_MODEL para activar el agente.")
+        raise ValueError(
+            "Configura NVIDIA_BASE_URL y NVIDIA_MODEL para activar el agente.")
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -55,7 +56,8 @@ def answer_with_tools(
         f"Nodos seleccionados actualmente: origen={default_origin}, destino={default_destination}. "
         f"Criterio seleccionado: {default_metric}. La red es local y está disponible con la herramienta plan_route."
     )
-    messages = [{"role": "system", "content": SYSTEM_PROMPT + "\n\nCONTEXTO DE SESIÓN: " + context}]
+    messages = [{"role": "system", "content": SYSTEM_PROMPT +
+                 "\n\nCONTEXTO DE SESIÓN: " + context}]
     messages.extend(history[-10:])
     messages.append({"role": "user", "content": user_text})
     tool_context = {
@@ -78,15 +80,18 @@ def answer_with_tools(
                 "tool_choice": "auto",
                 "temperature": 0.2,
             },
+            stream=True,
             timeout=timeout_seconds,
         )
         if not response.ok:
             detail = response.text[:500]
-            raise RuntimeError(f"El proveedor del LLM respondió HTTP {response.status_code}: {detail}")
+            raise RuntimeError(
+                f"El proveedor del LLM respondió HTTP {response.status_code}: {detail}")
         payload = response.json()
         choices = payload.get("choices", [])
         if not choices:
-            raise RuntimeError("El proveedor devolvió una respuesta sin choices.")
+            raise RuntimeError(
+                "El proveedor devolvió una respuesta sin choices.")
         message = choices[0].get("message", {})
         tool_calls = message.get("tool_calls") or []
         if not tool_calls:
@@ -96,7 +101,8 @@ def answer_with_tools(
         for call in tool_calls:
             function = call.get("function", {})
             name = function.get("name", "")
-            observation = execute_tool_json(name, function.get("arguments", "{}"), **tool_context)
+            observation = execute_tool_json(
+                name, function.get("arguments", "{}"), **tool_context)
             messages.append({
                 "role": "tool",
                 "tool_call_id": call.get("id", name),

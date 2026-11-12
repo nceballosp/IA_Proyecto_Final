@@ -31,18 +31,8 @@ def get_retriever():
     return MobilityRetriever(ROOT / "Datos" / "corpus_movilidad.json")
 
 
-def setting(name: str) -> str:
-    value = os.getenv(name, "")
-    if value:
-        return value
-    try:
-        return str(st.secrets.get(name, ""))
-    except Exception:
-        return ""
-
-
-NVIDIA_BASE_URL = setting("NVIDIA_BASE_URL") or "https://integrate.api.nvidia.com/v1"
-NVIDIA_MODEL = setting("NVIDIA_MODEL") or "openai/gpt-oss-20b"
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
+NVIDIA_MODEL = "meta/llama-3.2-90b-vision-instruct"
 
 
 st.title("Copiloto de movilidad · Medellín")
@@ -87,7 +77,8 @@ for message in st.session_state.agent_history:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-prompt = st.chat_input("Pregunta por pico y placa, Metro u organiza una ruta...")
+prompt = st.chat_input(
+    "Pregunta por pico y placa, Metro u organiza una ruta...")
 if prompt:
     prior_history = list(st.session_state.agent_history)
     st.session_state.agent_history.append({"role": "user", "content": prompt})
@@ -100,7 +91,7 @@ if prompt:
                 user_text=prompt,
                 history=prior_history,
                 base_url=NVIDIA_BASE_URL,
-                api_key=setting("NVIDIA_API_KEY"),
+                api_key=os.getenv("NVIDIA_API_KEY"),
                 model=NVIDIA_MODEL,
                 graph=graph,
                 coords=coords,
@@ -112,7 +103,8 @@ if prompt:
         except Exception as exc:
             response_text = f"No pude completar la consulta: {exc}"
         st.markdown(response_text)
-    st.session_state.agent_history.append({"role": "assistant", "content": response_text})
+    st.session_state.agent_history.append(
+        {"role": "assistant", "content": response_text})
     st.rerun()
 
 if "route_result" not in st.session_state:
