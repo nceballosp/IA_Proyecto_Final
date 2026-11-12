@@ -1,15 +1,20 @@
 """Dashboard del MVP del copiloto de movilidad (Streamlit)."""
 
 from pathlib import Path
+import os
 import sys
 
 import pandas as pd
 import pydeck as pdk
 import streamlit as st
+from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent
+load_dotenv(ROOT / ".env")
 sys.path.insert(0, str(ROOT))
 from src.routing import compare_search, load_network  # noqa: E402
+from src.agent import answer_with_tools  # noqa: E402
+from src.rag import MobilityRetriever  # noqa: E402
 
 
 st.set_page_config(page_title="Copiloto de movilidad | Medellín",
@@ -19,6 +24,25 @@ st.set_page_config(page_title="Copiloto de movilidad | Medellín",
 @st.cache_resource(show_spinner="Cargando la red vial local...")
 def get_network():
     return load_network(ROOT / "Datos")
+
+
+@st.cache_resource(show_spinner="Preparando el corpus de movilidad...")
+def get_retriever():
+    return MobilityRetriever(ROOT / "Datos" / "corpus_movilidad.json")
+
+
+def setting(name: str) -> str:
+    value = os.getenv(name, "")
+    if value:
+        return value
+    try:
+        return str(st.secrets.get(name, ""))
+    except Exception:
+        return ""
+
+
+NVIDIA_BASE_URL = setting("NVIDIA_BASE_URL") or "https://integrate.api.nvidia.com/v1"
+NVIDIA_MODEL = setting("NVIDIA_MODEL") or "openai/gpt-oss-20b"
 
 
 st.title("Copiloto de movilidad · Medellín")
@@ -53,6 +77,43 @@ with st.sidebar:
     run_route = st.button("Calcular y comparar",
                           type="primary", width='stretch')
     st.caption("El CSV contiene nodos, no nombres de direcciones. Selecciona por ID/coordenadas; después se puede añadir geocodificación.")
+
+st.subheader("Asistente de movilidad")
+st.caption("Consulta el corpus oficial o pide una ruta para los nodos seleccionados. La ruta solo modela calles para conducir.")
+if "agent_history" not in st.session_state:
+    st.session_state.agent_history = []
+
+for message in st.session_state.agent_history:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+prompt = st.chat_input("Pregunta por pico y placa, Metro u organiza una ruta...")
+if prompt:
+    prior_history = list(st.session_state.agent_history)
+    st.session_state.agent_history.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+    with st.chat_message("assistant"):
+        try:
+            retriever = get_retriever()
+            response_text = answer_with_tools(
+                user_text=prompt,
+                history=prior_history,
+                base_url=NVIDIA_BASE_URL,
+                api_key=setting("NVIDIA_API_KEY"),
+                model=NVIDIA_MODEL,
+                graph=graph,
+                coords=coords,
+                retriever=retriever,
+                default_origin=origin,
+                default_destination=destination,
+                default_metric=metric,
+            )
+        except Exception as exc:
+            response_text = f"No pude completar la consulta: {exc}"
+        st.markdown(response_text)
+    st.session_state.agent_history.append({"role": "assistant", "content": response_text})
+    st.rerun()
 
 if "route_result" not in st.session_state:
     st.session_state.route_result = None
