@@ -1,6 +1,6 @@
 # Copiloto de movilidad: rutas con A*
 
-MVP académico para calcular rutas sobre la red vial de Medellín descargada de OpenStreetMap. La interfaz compara A* con búsqueda de costo uniforme (UCS/Dijkstra) y muestra la ruta en un mapa.
+MVP académico con dos pestañas: **Copiloto de movilidad** para rutas y evaluación A*/UCS, y **Asistente RAG** para consultar el corpus documental mediante chat. La red vial de Medellín se descargó de OpenStreetMap.
 
 ## Ejecutar
 
